@@ -1,10 +1,13 @@
 schemaVersion: 2.3.0
 metadata:
   name: bob-lab
-  # Sem generateName: usar nome fixo para facilitar port-forward nos scripts
 attributes:
-  # Armazenamento efêmero: sem PVC — workspace sobe sem precisar de quota de storage
+  # Armazenamento efêmero: workspace sobe sem PVC — sem dependência de StorageClass
   controller.devfile.io/storage-type: ephemeral
+  # Seleciona o editor VS Code Open Source (che-code) embutido no Dev Spaces
+  # O IBM Bob é selecionado no dashboard na criação do workspace (Editor Selector)
+  # ou via URL: ...?che-editor=che-incubator/che-code/latest
+  controller.devfile.io/che-editor: che-incubator/che-code/latest
 
 projects:
   - name: openshift-lab
@@ -17,7 +20,7 @@ projects:
 components:
   - name: tools
     container:
-      # UDI ubi9: imagem universal, amd64 + ppc64le, sem necessidade de registry privado
+      # UDI ubi9: imagem universal, amd64 + ppc64le, sem registry privado
       image: quay.io/devfile/universal-developer-image:ubi9-latest
       memoryRequest: 512Mi
       memoryLimit: 2Gi
@@ -26,13 +29,13 @@ components:
       mountSources: true
       sourceMapping: /projects
       endpoints:
-        # Porta SSH exposta apenas internamente — usada pelo Bob via port-forward
+        # Porta SSH exposta apenas internamente — usada pelo Bob desktop via port-forward
         - name: ssh
           exposure: none
           targetPort: 2022
 
   - name: ramalama
-    # Modelo de código leve (3B) para AI assist local — evita chamadas externas
+    # LLM leve (3B) rodando dentro do pod — sem API keys externas
     container:
       image: quay.io/ramalama/ramalama:latest
       memoryRequest: 2Gi
@@ -57,8 +60,8 @@ components:
         - name: ramalama-models
           path: /models
       endpoints:
+        # Acesso interno: Continue extension conecta em http://localhost:8080
         - name: llm-serve
-          # internal: só o container tools acessa via localhost dentro do pod
           exposure: none
           targetPort: 8080
 
