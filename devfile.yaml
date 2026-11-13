@@ -1,12 +1,8 @@
-schemaVersion: 2.3.0
+schemaVersion: 2.2.0
 metadata:
   name: bob-lab
 attributes:
-  # Armazenamento efêmero: workspace sobe sem PVC — sem dependência de StorageClass
   controller.devfile.io/storage-type: ephemeral
-  # Editor: VS Code Open Source (che-code) — disponível nativamente no Dev Spaces
-  # Para usar IBM Bob desktop: veja README.md seção "Conectar IBM Bob via SSH"
-  controller.devfile.io/che-editor: che-incubator/che-code/latest
 
 projects:
   - name: openshift-lab
@@ -17,30 +13,28 @@ projects:
         revision: main
 
 components:
-  - name: tools
+  - name: udi
     container:
-      # UDI ubi9: imagem universal, amd64 + ppc64le, sem registry privado
-      image: quay.io/devfile/universal-developer-image:ubi9-latest
-      memoryRequest: 512Mi
-      memoryLimit: 2Gi
-      cpuRequest: 250m
-      cpuLimit: "1"
+      image: quay.io/devfile/universal-developer-image:ubi8-latest
+      memoryLimit: 4Gi
+      memoryRequest: 2Gi
+      cpuLimit: 4000m
+      cpuRequest: 1000m
       mountSources: true
       sourceMapping: /projects
-      endpoints:
-        # Porta SSH exposta apenas internamente — usada pelo Bob desktop via port-forward
-        - name: ssh
-          exposure: none
-          targetPort: 2022
 
   - name: ramalama
-    # LLM leve (3B) rodando dentro do pod — sem API keys externas
+    attributes:
+      container-overrides:
+        resources:
+          limits:
+            cpu: 4000m
+            memory: 8Gi
+          requests:
+            cpu: 1000m
+            memory: 4Gi
     container:
       image: quay.io/ramalama/ramalama:latest
-      memoryRequest: 2Gi
-      memoryLimit: 4Gi
-      cpuRequest: 500m
-      cpuLimit: "2"
       env:
         - name: HOME
           value: /models
@@ -59,9 +53,9 @@ components:
         - name: ramalama-models
           path: /models
       endpoints:
-        # Acesso interno: Continue extension conecta em http://localhost:8080
-        - name: llm-serve
-          exposure: none
+        - exposure: public
+          name: ramalamaserve
+          protocol: http
           targetPort: 8080
 
   - name: ramalama-models
@@ -69,22 +63,11 @@ components:
       size: 5Gi
 
 commands:
-  - id: setup-continue
+  - id: copyconfig
     exec:
-      component: tools
-      commandLine: |
-        set -e
-        # Instala a extensão Continue do open-vsx (assistente IA local)
-        VSIX_URL="https://open-vsx.org/api/Continue/continue/alpine-x64/2.1.0/file/Continue.continue-2.1.0@alpine-x64.vsix"
-        curl -fsSL "$VSIX_URL" -o /tmp/continue.vsix
-        code --install-extension /tmp/continue.vsix --force || true
-        rm -f /tmp/continue.vsix
-        # Configura o Continue para apontar para o LLM local (Ramalama na porta 8080)
-        mkdir -p /home/user/.continue
-        curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml \
-          -o /home/user/.continue/config.yaml
-        echo "✓ Continue instalado e configurado (LLM: http://localhost:8080)"
+      component: udi
+      commandLine: "mkdir -p /home/user/.continue && cp /projects/openshift-lab/../cde-ramalama-continue/continue-config.yaml /home/user/.continue/config.yaml || curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml -o /home/user/.continue/config.yaml"
 
 events:
   postStart:
-    - setup-continue
+    - copyconfig
