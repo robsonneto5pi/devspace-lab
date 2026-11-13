@@ -5,10 +5,10 @@ attributes:
   controller.devfile.io/storage-type: ephemeral
 
 projects:
-  - name: openshift-lab
+  - name: devspace-lab
     git:
       remotes:
-        origin: 'https://github.com/remingtonsb/fam-labs'
+        origin: 'https://github.com/robsonneto5pi/devspace-lab'
       checkoutFrom:
         revision: main
 
