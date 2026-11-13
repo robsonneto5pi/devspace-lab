@@ -1,0 +1,97 @@
+---
+# ============================================================
+# 02-checluster.yaml
+# CheCluster configurado para TechZone SEM login Red Hat obrigatório.
+#
+# Pontos-chave:
+#   - identityProviderURL vazio          → usa o OpenID do próprio OCP (kubeadmin/serviceaccount)
+#   - devEnvironments.disableContainerBuildCapabilities: false → permite builds sem root
+#   - storage.pvcStrategy: per-workspace  → workspace sobe mesmo sem StorageClass especial
+#   - networking.auth.gateway.kubernetesRBAC: true → autenticação por ServiceAccount token
+#     (token copiado via "Copy login command" na console OCP, sem conta Red Hat)
+#
+# Aplicar com:
+#   oc apply -f manifests/02-checluster.yaml
+#   oc wait checluster/devspaces -n openshift-devspaces \
+#      --for=jsonpath='{.status.chePhase}'=Active --timeout=10m
+# ============================================================
+
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: devspaces
+  namespace: openshift-devspaces
+spec:
+  # --- Componentes ---
+  components:
+    cheServer:
+      # Loga mais informações de debug; remover em produção
+      debug: false
+    dashboard:
+      # Habilita o botão "Create Workspace from URL" sem exigir conta externa
+      env:
+        - name: CHE_WORKSPACE_AUTO_START
+          value: "true"
+    devWorkspace: {}
+    devfileRegistry: {}
+    imagePuller:
+      enable: true
+      spec:
+        images: >-
+          universal-developer-image=quay.io/devfile/universal-developer-image:ubi9-latest;
+          ramalama=quay.io/ramalama/ramalama:latest
+
+  # --- Ambientes de desenvolvimento ---
+  devEnvironments:
+    # Tempo de inatividade em segundos (0 = nunca para)
+    # TechZone tem limite de recursos; use 7200 (2h) para economizar
+    secondsOfInactivityBeforeIdling: 7200
+    secondsOfRunBeforeIdling: -1
+
+    # Estratégia de storage:
+    #   per-workspace  = 1 PVC por workspace (padrão seguro)
+    #   ephemeral      = sem PVC, mais rápido; dados perdem ao parar
+    # Usar "per-workspace" para TechZone com nfs-storage-provisioner
+    storage:
+      pvcStrategy: per-workspace
+
+    # Permite builds de imagem OCI dentro do workspace (Buildah/Podman)
+    disableContainerBuildCapabilities: false
+
+    # Node selector para garantir que workspaces rodem nos workers certos no TechZone
+    # Remover se o cluster tiver apenas um nó (master-0)
+    # nodeSelector:
+    #   node-role.kubernetes.io/worker: ""
+
+    # Editor padrão: IBM Bob (evita seleção de editor que redireciona para RH login)
+    defaultEditor: che-incubator/che-code/latest
+    # defaultComponents: lista de plugins sempre injetados em todos os workspaces
+    defaultComponents:
+      - name: universal-developer-image
+        container:
+          image: quay.io/devfile/universal-developer-image:ubi9-latest
+          memoryLimit: 2Gi
+          cpuLimit: "1"
+
+  # --- Rede e autenticação ---
+  networking:
+    # domain: deixar vazio para usar o wildcard DNS do cluster OCP automaticamente
+    # domain: apps.<cluster>.techzone.ibm.com
+    auth:
+      gateway:
+        # Autenticação via RBAC do próprio Kubernetes/OCP
+        # Não requer OAuth do Red Hat — só o token do `oc login`
+        kubernetesRBAC:
+          enabled: true
+        # Desabilita o OpenID externo (que forçaria login no sso.redhat.com)
+        oAuthProxy:
+          cookieExpireSeconds: 86400
+        # Sem identityProvider externo: usa service account tokens do OCP
+        traefik:
+          image: "quay.io/che-incubator/traefik:v2.10.4"
+      identityProviderURL: ""  # Vazio = usa OAuth interno do OCP (kubeadmin acesso direto)
+
+  # --- Containerized environments (ppc64le aware) ---
+  # Se o cluster for Power (ppc64le), o IBM Bob connector só funciona via SSH.
+  # Nesse caso, adicionar o componente che-code-sshd ao devfile manualmente.
+  # Para amd64 (TechZone x86 / Developer Sandbox), IBM Bob funciona nativamente.

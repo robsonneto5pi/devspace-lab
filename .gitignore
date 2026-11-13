@@ -1,0 +1,15 @@
+﻿# Segredos e dados sensiveis -- NUNCA versionar
+.secrets/
+*.crt
+*.key
+*.pem
+*.pfx
+.env
+.env.*
+
+# Dados do TechZone
+*token*
+
+# Arquivos temporarios
+*.tmp
+*.bak

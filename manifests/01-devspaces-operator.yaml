@@ -1,0 +1,38 @@
+---
+# ============================================================
+# 01-devspaces-operator.yaml
+# Instala o operador Red Hat OpenShift Dev Spaces via OLM.
+# Aplicar com: oc apply -f manifests/01-devspaces-operator.yaml
+# ============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-operators
+  labels:
+    # Necessário para que OLM possa operar neste namespace
+    openshift.io/cluster-monitoring: "true"
+
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: devspaces-og
+  namespace: openshift-operators
+spec:
+  # targetNamespaces vazio = all-namespaces install mode
+  targetNamespaces: []
+
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: devspaces
+  namespace: openshift-operators
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: devspaces
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  # Sem startingCSV: sempre instala a versão mais recente disponível no canal

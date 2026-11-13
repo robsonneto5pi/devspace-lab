@@ -1,0 +1,81 @@
+schemaVersion: 2.3.0
+metadata:
+  name: bob-lab
+  # Sem generateName: usar nome fixo para facilitar port-forward nos scripts
+attributes:
+  # Armazenamento efêmero: sem PVC — workspace sobe sem precisar de quota de storage
+  controller.devfile.io/storage-type: ephemeral
+
+projects:
+  - name: openshift-lab
+    git:
+      remotes:
+        origin: 'https://github.com/remingtonsb/fam-labs'
+      checkoutFrom:
+        revision: main
+
+components:
+  - name: tools
+    container:
+      # UDI ubi9: imagem universal, amd64 + ppc64le, sem necessidade de registry privado
+      image: quay.io/devfile/universal-developer-image:ubi9-latest
+      memoryRequest: 512Mi
+      memoryLimit: 2Gi
+      cpuRequest: 250m
+      cpuLimit: "1"
+      mountSources: true
+      sourceMapping: /projects
+      endpoints:
+        # Porta SSH exposta apenas internamente — usada pelo Bob via port-forward
+        - name: ssh
+          exposure: none
+          targetPort: 2022
+
+  - name: ramalama
+    # Modelo de código leve (3B) para AI assist local — evita chamadas externas
+    container:
+      image: quay.io/ramalama/ramalama:latest
+      memoryRequest: 2Gi
+      memoryLimit: 4Gi
+      cpuRequest: 500m
+      cpuLimit: "2"
+      env:
+        - name: HOME
+          value: /models
+      args:
+        - "ramalama"
+        - "--nocontainer"
+        - "--store"
+        - "/models"
+        - "serve"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "8080"
+        - "ollama://qwen2.5-coder:3b"
+      volumeMounts:
+        - name: ramalama-models
+          path: /models
+      endpoints:
+        - name: llm-serve
+          # internal: só o container tools acessa via localhost dentro do pod
+          exposure: none
+          targetPort: 8080
+
+  - name: ramalama-models
+    volume:
+      size: 5Gi
+
+commands:
+  - id: install-continue-config
+    exec:
+      component: tools
+      commandLine: >
+        mkdir -p /home/user/.continue &&
+        curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml
+        -o /home/user/.continue/config.yaml &&
+        echo "Continue config instalado."
+
+events:
+  postStart:
+    - install-continue-config

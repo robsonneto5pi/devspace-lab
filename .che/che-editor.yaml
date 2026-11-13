@@ -1,0 +1,22 @@
+inline:
+  schemaVersion: 2.1.0
+  metadata:
+    name: ibm-bob
+    displayName: IBM Bob
+    # Seleciona explicitamente o editor IBM Bob (che-code com extensão Bob)
+    # Evita o padrão che-code/che-theia que exige login OAuth Red Hat
+  components:
+    - name: bob-injector
+      plugin:
+        # ID registrado no Dev Spaces plugin registry
+        id: che-incubator/che-code/latest
+        registryUrl: 'https://eclipse-che.github.io/che-plugin-registry/main/v3'
+      attributes:
+        # Injeta a extensão IBM Bob automaticamente sem prompt de login
+        che-editor.yaml/inject-components: |
+          - name: ibm-bob-vsix
+            volume: {}
+        # IBM Bob é distribuído como VSIX via endpoint público (sem Red Hat login)
+        # Variável de ambiente desativa telemetria e prompt de account sign-in
+        EXTENSIONS: >
+          https://open-vsix.com/vscode/gallery/IBM.wca-vscode-ext/latest
