@@ -32,12 +32,6 @@ components:
         - name: ssh
           exposure: none
           targetPort: 2022
-      # Extensões instaladas automaticamente no che-code (open-vsx)
-      # Continue: assistente IA local que conecta ao Ramalama (Qwen2.5-Coder:3b)
-      attributes:
-        che-code.eclipse.org/contribute-entries: |
-          extensions:
-            - https://open-vsx.org/api/Continue/continue/alpine-x64/2.1.0/file/Continue.continue-2.1.0@alpine-x64.vsix
 
   - name: ramalama
     # LLM leve (3B) rodando dentro do pod — sem API keys externas
@@ -75,15 +69,22 @@ components:
       size: 5Gi
 
 commands:
-  - id: install-continue-config
+  - id: setup-continue
     exec:
       component: tools
-      commandLine: >
-        mkdir -p /home/user/.continue &&
-        curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml
-        -o /home/user/.continue/config.yaml &&
-        echo "✓ Continue config instalado (LLM: http://localhost:8080)"
+      commandLine: |
+        set -e
+        # Instala a extensão Continue do open-vsx (assistente IA local)
+        VSIX_URL="https://open-vsx.org/api/Continue/continue/alpine-x64/2.1.0/file/Continue.continue-2.1.0@alpine-x64.vsix"
+        curl -fsSL "$VSIX_URL" -o /tmp/continue.vsix
+        code --install-extension /tmp/continue.vsix --force || true
+        rm -f /tmp/continue.vsix
+        # Configura o Continue para apontar para o LLM local (Ramalama na porta 8080)
+        mkdir -p /home/user/.continue
+        curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml \
+          -o /home/user/.continue/config.yaml
+        echo "✓ Continue instalado e configurado (LLM: http://localhost:8080)"
 
 events:
   postStart:
-    - install-continue-config
+    - setup-continue
