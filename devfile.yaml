@@ -3,6 +3,12 @@ metadata:
   name: bob-lab
 attributes:
   controller.devfile.io/storage-type: ephemeral
+  # IBM Bob SSH tile (Tech Preview Dev Spaces 3.31)
+  # Usa che-code-sshd como editor: expõe porta 2022 (SSH) e 3400 (landing page)
+  # A landing page gera o URI vscode://redhat.devspaces-remote-ssh?... para clicar
+  # e abre direto no IBM Bob Desktop sem precisar de port-forward manual
+  controller.devfile.io/che-editor: che-incubator/che-code/latest
+  controller.devfile.io/sshd: "true"
 
 projects:
   - name: devspace-lab
@@ -66,7 +72,7 @@ commands:
   - id: copyconfig
     exec:
       component: udi
-      commandLine: "mkdir -p /home/user/.continue && cp /projects/openshift-lab/../cde-ramalama-continue/continue-config.yaml /home/user/.continue/config.yaml || curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml -o /home/user/.continue/config.yaml"
+      commandLine: "mkdir -p /home/user/.continue && curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml -o /home/user/.continue/config.yaml && echo '✓ Continue config OK'"
 
 events:
   postStart:
