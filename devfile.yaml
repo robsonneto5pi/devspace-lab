@@ -22,10 +22,10 @@ components:
   - name: udi
     container:
       image: quay.io/devfile/universal-developer-image:ubi8-latest
-      memoryLimit: 4Gi
-      memoryRequest: 2Gi
-      cpuLimit: 4000m
-      cpuRequest: 1000m
+      memoryLimit: 2Gi
+      memoryRequest: 256Mi
+      cpuLimit: "1"
+      cpuRequest: 100m
       mountSources: true
       sourceMapping: /projects
 
@@ -34,11 +34,11 @@ components:
       container-overrides:
         resources:
           limits:
-            cpu: 4000m
-            memory: 8Gi
-          requests:
-            cpu: 1000m
+            cpu: "2"
             memory: 4Gi
+          requests:
+            cpu: 200m
+            memory: 2Gi
     container:
       image: quay.io/ramalama/ramalama:latest
       env:
