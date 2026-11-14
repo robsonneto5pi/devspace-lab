@@ -22,12 +22,11 @@
 ```
 devspaces-lab/
 ├── devfile.yaml                   # Devfile do workspace (sem login Red Hat)
-├── .che/
-│   └── che-editor.yaml            # Seleciona IBM Bob como editor padrão
 ├── manifests/
 │   ├── 01-devspaces-operator.yaml # Instala o operador Dev Spaces via OLM
 │   └── 02-checluster.yaml         # CheCluster: auth via OCP token, sem RH OAuth
 ├── scripts/
+│   ├── connect-bob.cmd            # ★ Conecta IBM Bob Desktop ao workspace (1 comando)
 │   ├── tunnel.cmd                 # Abre port-forward SSH para o workspace
 │   └── ssh-setup.cmd              # Instala chave pública no pod e configura ~/.ssh/config
 └── .gitignore
@@ -106,25 +105,50 @@ https://devspaces.apps.<cluster>/f?url=https://github.com/<seu-usuario>/devspace
 2. Create Workspace → Import from Git → cole a URL deste repositório.
 3. O editor IBM Bob é selecionado automaticamente pelo `.che/che-editor.yaml`.
 
-### 4. Conectar IBM Bob via SSH (necessário em Power/ppc64le; opcional em x86)
+### 4. Conectar IBM Bob Desktop ao workspace
 
-> No Developer Sandbox (x86), o IBM Bob carrega direto no browser. Os passos abaixo são  
-> necessários apenas se você quiser usar o IBM Bob **desktop** (VS Code local).
+O Dev Spaces 3.31 tem suporte nativo ao IBM Bob via SSH (**Tech Preview**).
+Ao criar o workspace com o tile **IBM Bob** no dashboard, o Dev Spaces:
+- Configura automaticamente o bloco `Host bob-lab` em `~/.ssh/devspaces.conf`
+- Expõe uma **landing page** na porta 3400 com o URI de conexão direto
 
+#### Opção A — Landing page (mais simples, recomendado)
+
+1. Com o workspace rodando, acesse a landing page do workspace:
+   ```
+   https://devspaces.apps.<cluster>/<namespace>/bob-lab/3400/
+   ```
+   Exemplo no Developer Sandbox:
+   ```
+   https://devspaces.apps.rm2.thpm.p1.openshiftapps.com/robson-neto/bob-lab/3400/
+   ```
+2. A página exibe o URI de conexão. Clique nele — o IBM Bob Desktop abre e conecta automaticamente.
+
+> 💡 **Salve essa URL nos bookmarks** — enquanto o workspace estiver rodando, o clique no URI é o único passo necessário para reconectar o Bob Desktop.
+
+#### Opção B — Script `connect-bob.cmd` (quando o link não funcionar ou token expirar)
+
+O script lê a porta configurada pelo Dev Spaces no `~/.ssh/devspaces.conf`, instala a chave pública no pod e abre o túnel automaticamente.
+
+**Terminal** (manter aberto enquanto usar o Bob):
 ```bat
-REM Terminal 1 — fazer login (token copiado do console OCP)
-oc login --token=<token> --server=https://api.<cluster>:6443
-
-REM Terminal 2 — configurar SSH (só na 1ª vez ou quando o pod mudar)
-scripts\ssh-setup.cmd <namespace> 48778
-
-REM Terminal 3 — manter o túnel aberto (deixar rodando)
-scripts\tunnel.cmd <namespace> 48778
+cd C:\Users\RobsondeOliveiraNeto\Projetos\Dev\devspaces-lab
+scripts\connect-bob.cmd
 ```
 
-No IBM Bob desktop:
-- **Remote-SSH → Connect to Host → `devspaces-bob`**
-- Abrir pasta: `/projects/openshift-lab`
+Depois no IBM Bob Desktop: **Remote-SSH → Connect to Host → `bob-lab`** e abrir a pasta `/projects/devspace-lab`.
+
+> ⚠️ Pré-requisito: `oc login` já feito. Se o token expirou, copie o novo via
+> console OCP → canto superior direito → **Copy login command**.
+
+#### O que o `connect-bob.cmd` faz internamente
+
+```
+1. Lê ~/.ssh/devspaces.conf  →  encontra a porta local do Host bob-lab (ex: 62255)
+2. oc get pods               →  localiza o pod atual do workspace
+3. oc exec                   →  instala ~/.ssh/id_ed25519.pub no authorized_keys do pod
+4. oc port-forward           →  abre 127.0.0.1:62255 → pod:2022 (SSH)
+```
 
 ---
 
@@ -138,9 +162,10 @@ O Sandbox é gratuito, não exige conta em organização e usa x86_64 (IBM Bob f
 # 2. Console → Copy login command → cole no terminal
 oc login --token=<token> --server=https://api.rm2.thpm.p1.openshiftapps.com:6443
 
-# 3. Verificar namespace e recursos
-oc project <seu-usuario>-dev
-oc get dw,pods -n <seu-usuario>-dev
+# 3. Criar workspace a partir deste repositório
+#    Dashboard → Create Workspace → Import from Git:
+#    https://github.com/robsonneto5pi/devspace-lab
+#    Selecionar o tile "IBM Bob" no Editor Selector
 ```
 
 Dashboard: `https://devspaces.apps.rm2.thpm.p1.openshiftapps.com/dashboard/`
@@ -182,8 +207,10 @@ Não é possível rodar o IBM Bob self-hosted em cluster ppc64le.
 | Sintoma | Causa | Solução |
 |---|---|---|
 | "Another instance is running as administrator" | Bob aberto com elevação | Fechar a instância elevada e reabrir normalmente |
-| Explorer vazio / "path does not exist" | Caminho `/home/user/projects/...` inválido | Usar `/projects/<repo>` |
-| Connection refused na porta 48778 | Túnel caiu ou workspace parou | `oc get dw -n <ns>`, reiniciar workspace, executar `tunnel.cmd` novamente |
+| Explorer vazio / "path does not exist" | Caminho `/home/user/projects/...` inválido | Usar `/projects/devspace-lab` |
+| `ECONNREFUSED 127.0.0.1:<porta>` no Bob Desktop | Túnel não está aberto | Executar `scripts\connect-bob.cmd` num terminal e clicar em **Retry** no Bob |
+| `access token received successfully` abre no browser | Callback do `oc login` — normal | Pode fechar a aba; o token já foi recebido no terminal |
+| Workspace não sobe — `exceeded quota: requests.cpu` | `cpuRequest` total excede limite do Sandbox (3 CPUs) | Reduzir `cpuRequest` no devfile; valores atuais: `udi=100m`, `ramalama=200m` |
 | Workspace não sobe no TechZone Power | PVC pendente | Verificar StorageClass: `oc get sc`; usar `ephemeral` no devfile |
 | Dashboard redireciona para sso.redhat.com | `identityProviderURL` configurado | Verificar `02-checluster.yaml`, garantir `identityProviderURL: ""` |
 
