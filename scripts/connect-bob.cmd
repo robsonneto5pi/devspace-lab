@@ -49,6 +49,29 @@ if "!LOCAL_PORT!"=="" (
 
 echo [connect-bob] Porta local do bob-lab: !LOCAL_PORT!
 
+REM Verificar fase do workspace e reiniciar se necessario
+echo [connect-bob] Verificando workspace bob-lab em %NS%...
+set "PHASE="
+for /f "tokens=*" %%F in ('oc get dw bob-lab -n %NS% -o jsonpath^={.status.phase} 2^>nul') do set "PHASE=%%F"
+
+if /i "!PHASE!"=="Stopped" (
+    echo [connect-bob] Workspace parado. Reiniciando...
+    set "PATCH_FILE=%TEMP%\dw-patch.json"
+    echo {"spec":{"started":true}}> "!PATCH_FILE!"
+    oc patch dw bob-lab -n %NS% --type=merge --patch-file "!PATCH_FILE!" >nul
+    echo [connect-bob] Aguardando workspace ficar Running...
+    :waitloop
+    timeout /t 5 /nobreak >nul
+    for /f "tokens=*" %%F in ('oc get dw bob-lab -n %NS% -o jsonpath^={.status.phase} 2^>nul') do set "PHASE=%%F"
+    echo [connect-bob]   Phase: !PHASE!
+    if /i not "!PHASE!"=="Running" goto waitloop
+    echo [connect-bob] Workspace Running!
+) else if /i not "!PHASE!"=="Running" (
+    echo [ERRO] Workspace em fase inesperada: !PHASE!
+    echo        Verifique: oc get dw bob-lab -n %NS%
+    exit /b 1
+)
+
 REM Localizar o pod atual do workspace bob-lab
 echo [connect-bob] Localizando pod em namespace %NS%...
 set "POD="
@@ -58,7 +81,7 @@ for /f "tokens=1" %%P in ('oc get pods -n %NS% --no-headers -o custom-columns^=N
 
 if "!POD!"=="" (
     echo [ERRO] Nenhum pod de workspace encontrado em %NS%.
-    echo        Verifique se o workspace esta Running: oc get pods -n %NS%
+    echo        Verifique: oc get pods -n %NS%
     exit /b 1
 )
 
