@@ -51,10 +51,16 @@ echo [connect-bob] Porta local do bob-lab: !LOCAL_PORT!
 
 REM Verificar fase do workspace e reiniciar se necessario
 echo [connect-bob] Verificando workspace bob-lab em %NS%...
-set "PHASE="
-for /f "tokens=*" %%F in ('oc get dw bob-lab -n %NS% -o jsonpath^={.status.phase} 2^>nul') do set "PHASE=%%F"
 
-if /i "!PHASE!"=="Stopped" (
+REM Usar powershell para obter a fase sem artefatos de CR/LF
+for /f "usebackq tokens=*" %%F in (`powershell -NoProfile -Command "oc get dw bob-lab -n %NS% -o jsonpath='{.status.phase}' 2>$null"`) do set "PHASE=%%F"
+REM Remover aspas simples que o powershell pode adicionar
+set "PHASE=!PHASE:'=!"
+echo [connect-bob] Workspace fase: !PHASE!
+
+REM Verificar se esta Stopped — reiniciar
+echo !PHASE! | findstr /i "Stopped" >nul
+if not errorlevel 1 (
     echo [connect-bob] Workspace parado. Reiniciando...
     set "PATCH_FILE=%TEMP%\dw-patch.json"
     echo {"spec":{"started":true}}> "!PATCH_FILE!"
@@ -62,15 +68,25 @@ if /i "!PHASE!"=="Stopped" (
     echo [connect-bob] Aguardando workspace ficar Running...
     :waitloop
     timeout /t 5 /nobreak >nul
-    for /f "tokens=*" %%F in ('oc get dw bob-lab -n %NS% -o jsonpath^={.status.phase} 2^>nul') do set "PHASE=%%F"
+    for /f "usebackq tokens=*" %%F in (`powershell -NoProfile -Command "oc get dw bob-lab -n %NS% -o jsonpath='{.status.phase}' 2>$null"`) do set "PHASE=%%F"
+    set "PHASE=!PHASE:'=!"
     echo [connect-bob]   Phase: !PHASE!
-    if /i not "!PHASE!"=="Running" goto waitloop
+    echo !PHASE! | findstr /i "Running" >nul
+    if errorlevel 1 goto waitloop
     echo [connect-bob] Workspace Running!
-) else if /i not "!PHASE!"=="Running" (
-    echo [ERRO] Workspace em fase inesperada: !PHASE!
-    echo        Verifique: oc get dw bob-lab -n %NS%
-    exit /b 1
+    goto prosseguir
 )
+
+REM Verificar se esta Running — OK
+echo !PHASE! | findstr /i "Running" >nul
+if not errorlevel 1 goto prosseguir
+
+REM Fase inesperada
+echo [ERRO] Workspace em fase inesperada: !PHASE!
+echo        Verifique: oc get dw bob-lab -n %NS%
+exit /b 1
+
+:prosseguir
 
 REM Localizar o pod atual do workspace bob-lab
 echo [connect-bob] Localizando pod em namespace %NS%...
