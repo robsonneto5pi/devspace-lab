@@ -68,6 +68,13 @@ commands:
       component: udi
       commandLine: "mkdir -p /home/user/.continue && curl -fsSL https://raw.githubusercontent.com/remingtonsb/cde-ramalama-continue/master/continue-config.yaml -o /home/user/.continue/config.yaml && echo '✓ Continue config OK'"
 
+  - id: setupagents
+    exec:
+      component: udi
+      workingDir: /projects/devspace-lab
+      commandLine: "bash scripts/setup-agents.sh"
+
 events:
   postStart:
     - copyconfig
+    - setupagents
