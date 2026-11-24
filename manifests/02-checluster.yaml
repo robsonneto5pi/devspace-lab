@@ -6,7 +6,7 @@
 # Pontos-chave:
 #   - identityProviderURL vazio          → usa o OpenID do próprio OCP (kubeadmin/serviceaccount)
 #   - devEnvironments.disableContainerBuildCapabilities: false → permite builds sem root
-#   - storage.pvcStrategy: per-workspace  → workspace sobe mesmo sem StorageClass especial
+#   - storage.pvcStrategy: per-workspace  → default; o devfile usa ephemeral e sobrescreve
 #   - networking.auth.gateway.kubernetesRBAC: true → autenticação por ServiceAccount token
 #     (token copiado via "Copy login command" na console OCP, sem conta Red Hat)
 #
@@ -48,10 +48,8 @@ spec:
     secondsOfInactivityBeforeIdling: 7200
     secondsOfRunBeforeIdling: -1
 
-    # Estratégia de storage:
-    #   per-workspace  = 1 PVC por workspace (padrão seguro)
-    #   ephemeral      = sem PVC, mais rápido; dados perdem ao parar
-    # Usar "per-workspace" para TechZone com nfs-storage-provisioner
+    # Estratégia padrão de PVC. Workspaces com controller.devfile.io/storage-type: ephemeral
+    # no devfile ignoram esta configuração.
     storage:
       pvcStrategy: per-workspace
 
@@ -63,15 +61,8 @@ spec:
     # nodeSelector:
     #   node-role.kubernetes.io/worker: ""
 
-    # Editor padrão: IBM Bob (evita seleção de editor que redireciona para RH login)
+    # Editor padrão (che-code, baseado em VS Code)
     defaultEditor: che-incubator/che-code/latest
-    # defaultComponents: lista de plugins sempre injetados em todos os workspaces
-    defaultComponents:
-      - name: universal-developer-image
-        container:
-          image: quay.io/devfile/universal-developer-image:ubi9-latest
-          memoryLimit: 2Gi
-          cpuLimit: "1"
 
   # --- Rede e autenticação ---
   networking:
@@ -83,7 +74,7 @@ spec:
         # Não requer OAuth do Red Hat — só o token do `oc login`
         kubernetesRBAC:
           enabled: true
-        # Desabilita o OpenID externo (que forçaria login no sso.redhat.com)
+        # Apenas tempo de expiração do cookie; o login é feito pelo RBAC acima
         oAuthProxy:
           cookieExpireSeconds: 86400
         # Sem identityProvider externo: usa service account tokens do OCP

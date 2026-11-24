@@ -15,7 +15,7 @@ projects:
 components:
   - name: udi
     container:
-      image: quay.io/devfile/universal-developer-image:ubi8-latest
+      image: quay.io/devfile/universal-developer-image:ubi9-latest
       memoryLimit: 2Gi
       memoryRequest: 256Mi
       cpuLimit: "1"

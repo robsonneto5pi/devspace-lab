@@ -91,7 +91,7 @@ exit /b 1
 REM Localizar o pod atual do workspace bob-lab
 echo [connect-bob] Localizando pod em namespace %NS%...
 set "POD="
-for /f "tokens=1" %%P in ('oc get pods -n %NS% --no-headers -o custom-columns^=NAME:.metadata.name 2^>nul ^| findstr /i "workspace"') do (
+for /f "tokens=1" %%P in ('oc get pods -n %NS% -l "controller.devfile.io/devworkspace_name=bob-lab" --no-headers -o custom-columns^=NAME:.metadata.name 2^>nul') do (
     if "!POD!"=="" set "POD=%%P"
 )
 
@@ -105,7 +105,7 @@ echo [connect-bob] Pod: !POD!
 echo.
 
 REM Instalar chave publica no pod (silencioso se ja existir)
-set "PUBKEY_FILE=%USERPROFILE%\.ssh\id_ed25519.pub"
+set "PUBKEY_FILE=%USERPROFILE%\.ssh\id_devspaces.pub"
 if exist "!PUBKEY_FILE!" (
     echo [connect-bob] Instalando chave publica no pod...
     set /p PUBKEY=<"!PUBKEY_FILE!"

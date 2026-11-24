@@ -62,7 +62,7 @@ echo [ssh-setup.cmd] Pod: !POD!
 REM --- 4. Instalar chave publica no pod ---
 echo [ssh-setup.cmd] Instalando chave publica no pod...
 set /p PUBKEY=<"%SSH_KEY%.pub"
-oc exec -n %NS% !POD! -- bash -c "mkdir -p /home/user/.ssh && chmod 700 /home/user/.ssh && echo '!PUBKEY!' >> /home/user/.ssh/authorized_keys && chmod 600 /home/user/.ssh/authorized_keys && echo OK"
+oc exec -n %NS% !POD! -c udi -- bash -c "mkdir -p /home/user/.ssh && chmod 700 /home/user/.ssh && touch /home/user/.ssh/authorized_keys && (grep -qxF '!PUBKEY!' /home/user/.ssh/authorized_keys || echo '!PUBKEY!' >> /home/user/.ssh/authorized_keys) && chmod 600 /home/user/.ssh/authorized_keys && echo OK"
 if errorlevel 1 (
     echo [ERRO] Falha ao instalar chave no pod. Verifique se o pod esta Running.
     exit /b 1
@@ -103,7 +103,7 @@ echo ========================================================
 echo  Proximo passo:
 echo   1. Execute: scripts\tunnel.cmd %NS% %LOCAL_PORT%
 echo      (em outro terminal, deixe rodando)
-echo   2. No IBM Bob: Remote-SSH -^> %HOST_ALIAS% -^> /projects/openshift-lab
+echo   2. No IBM Bob: Remote-SSH -^> %HOST_ALIAS% -^> /projects/devspace-lab
 echo ========================================================
 echo.
 

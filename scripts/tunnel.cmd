@@ -25,9 +25,9 @@ echo [tunnel.cmd] Namespace    : %NS%
 echo [tunnel.cmd] Porta local  : %LOCAL_PORT%
 echo.
 
-REM Localiza o deploy do workspace bob-lab (nome fixo no devfile)
+REM Localiza o deployment do workspace bob-lab pela label do DevWorkspace
 echo [tunnel.cmd] Procurando deployment do workspace bob-lab...
-for /f "tokens=*" %%D in ('oc get deploy -n %NS% -o name 2^>^&1 ^| findstr /i "bob-lab"') do (
+for /f "tokens=*" %%D in ('oc get deploy -n %NS% -l "controller.devfile.io/devworkspace_name=bob-lab" -o name 2^>^&1 ^| findstr /i "deployment"') do (
     set "DEPLOY=%%D"
 )
 

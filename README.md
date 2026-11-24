@@ -1,4 +1,4 @@
-# devspaces-lab — IBM Bob + OpenShift Dev Spaces (TechZone, sem login Red Hat)
+# devspace-lab — IBM Bob + OpenShift Dev Spaces (TechZone, sem login Red Hat)
 
 > Repositório de infraestrutura para provisionar um ambiente IBM Bob no TechZone usando  
 > OpenShift Dev Spaces **sem** necessidade de conta Red Hat / sso.redhat.com.  
@@ -20,7 +20,7 @@
 ## Estrutura do repositório
 
 ```
-devspaces-lab/
+devspace-lab/
 ├── devfile.yaml                   # Devfile do workspace (sem login Red Hat)
 ├── manifests/
 │   ├── 01-devspaces-operator.yaml # Instala o operador Dev Spaces via OLM
@@ -28,7 +28,8 @@ devspaces-lab/
 ├── scripts/
 │   ├── connect-bob.cmd            # ★ Conecta IBM Bob Desktop ao workspace (1 comando)
 │   ├── tunnel.cmd                 # Abre port-forward SSH para o workspace
-│   └── ssh-setup.cmd              # Instala chave pública no pod e configura ~/.ssh/config
+│   ├── ssh-setup.cmd              # Instala chave pública no pod e configura ~/.ssh/config
+│   └── setup-agents.sh            # Instala CLIs de agentes de IA (roda no postStart)
 └── .gitignore
 ```
 
@@ -97,17 +98,17 @@ oc get checluster devspaces -n openshift-devspaces \
 
 **Opção A — via URL (mais simples):**
 ```
-https://devspaces.apps.<cluster>/f?url=https://github.com/<seu-usuario>/devspaces-lab
+https://devspaces.apps.<cluster>/f?url=https://github.com/<seu-usuario>/devspace-lab
 ```
 
 **Opção B — via dashboard:**
 1. Acesse o dashboard (URL obtida acima).
 2. Create Workspace → Import from Git → cole a URL deste repositório.
-3. O editor IBM Bob é selecionado automaticamente pelo `.che/che-editor.yaml`.
+3. Selecione o tile **IBM Bob** no Editor Selector.
 
 ### 4. Conectar IBM Bob Desktop ao workspace
 
-O Dev Spaces 3.31 tem suporte nativo ao IBM Bob via SSH (**Tech Preview**).
+O Dev Spaces (canal `stable`) tem suporte ao IBM Bob via SSH (**Tech Preview**).
 Ao criar o workspace com o tile **IBM Bob** no dashboard, o Dev Spaces:
 - Configura automaticamente o bloco `Host bob-lab` em `~/.ssh/devspaces.conf`
 - Expõe uma **landing page** na porta 3400 com o URI de conexão direto
@@ -120,7 +121,7 @@ Ao criar o workspace com o tile **IBM Bob** no dashboard, o Dev Spaces:
    ```
    Exemplo no Developer Sandbox:
    ```
-   https://devspaces.apps.rm2.thpm.p1.openshiftapps.com/robson-neto/bob-lab/3400/
+   https://devspaces.apps.rm2.thpm.p1.openshiftapps.com/robson-neto-dev/bob-lab/3400/
    ```
 2. A página exibe o URI de conexão. Clique nele — o IBM Bob Desktop abre e conecta automaticamente.
 
@@ -132,7 +133,7 @@ O script lê a porta configurada pelo Dev Spaces no `~/.ssh/devspaces.conf`, ins
 
 **Terminal** (manter aberto enquanto usar o Bob):
 ```bat
-cd C:\Users\RobsondeOliveiraNeto\Projetos\Dev\devspaces-lab
+cd C:\Users\RobsondeOliveiraNeto\Projetos\Dev\devspace-lab
 scripts\connect-bob.cmd
 ```
 
@@ -146,9 +147,11 @@ Depois no IBM Bob Desktop: **Remote-SSH → Connect to Host → `bob-lab`** e ab
 ```
 1. Lê ~/.ssh/devspaces.conf  →  encontra a porta local do Host bob-lab (ex: 62255)
 2. oc get pods               →  localiza o pod atual do workspace
-3. oc exec                   →  instala ~/.ssh/id_ed25519.pub no authorized_keys do pod
+3. oc exec                   →  instala ~/.ssh/id_devspaces.pub no authorized_keys do pod
 4. oc port-forward           →  abre 127.0.0.1:62255 → pod:2022 (SSH)
 ```
+
+> A porta 2022 não é declarada no devfile. Se o túnel falhar com "connection refused" na 2022, confira as portas do pod com `oc get pod <pod> -o jsonpath='{.spec.containers[*].ports}'`.
 
 ---
 
@@ -192,7 +195,13 @@ são perdidos ao parar. Use sempre o repositório git para persistir código.
 - Modelo leve (3B parâmetros), cabe em 4Gi de RAM.
 - Sem chamadas externas: o LLM roda **dentro do pod** do workspace.
 - Elimina dependência de API keys externas (OpenAI, Anthropic etc.).
-- O Continue extension se conecta a `http://localhost:8080` automaticamente via `postStart`.
+- O `postStart` baixa só a config do Continue. Este repositório não instala a extensão Continue em si.
+
+### O que o `postStart` faz
+
+- `copyconfig`: baixa a config do Continue para `/home/user/.continue/config.yaml`.
+- `setupagents` (`scripts/setup-agents.sh`): instala `claude`, `codex`, `opencode` e `cline` em `~/.npm-global` e adiciona ao `~/.bashrc` o PATH e a carga de `.env.local`.
+- `.env.local` não é versionado (storage efêmero): recrie-o no workspace com as chaves de API.
 
 ### IBM Bob em Power (ppc64le)
 
@@ -225,4 +234,4 @@ Não é possível rodar o IBM Bob self-hosted em cluster ppc64le.
 
 ---
 
-*Baseado na sessão de trabalho documentada em GUIA-BOB-DEVSPACES.md e no padrão de CDE do repositório [remingtonsb/cde-ramalama-continue](https://github.com/remingtonsb/cde-ramalama-continue).*
+*Baseado no padrão de CDE do repositório [remingtonsb/cde-ramalama-continue](https://github.com/remingtonsb/cde-ramalama-continue).*
